@@ -27,50 +27,20 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      // Tentar login direto
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
-      // Se o erro for de email não confirmado, tentar registrar o usuário via API
-      if (
-        signInError &&
-        (signInError.message.includes("Email not confirmed") ||
-          signInError.message.includes("Invalid login credentials"))
-      ) {
-        try {
-          // Tentar registrar/confirmar via API
-          const response = await fetch("/api/auth", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password, action: "register" }),
-          })
-
-          if (response.ok) {
-            // Tentar login novamente após registro
-            const { error: retryError } = await supabase.auth.signInWithPassword({
-              email,
-              password,
-            })
-
-            if (retryError) {
-              setError(retryError.message)
-              setLoading(false)
-              return
-            }
-
-            // Login bem-sucedido
-            router.push("/dashboard")
-            return
-          }
-        } catch (apiError) {
-          console.error("Erro ao chamar API de registro:", apiError)
-        }
-      }
-
       if (signInError) {
-        setError(signInError.message)
+        // Mensagens de erro mais amigáveis
+        if (signInError.message.includes("Invalid login credentials")) {
+          setError("Email ou senha incorretos")
+        } else if (signInError.message.includes("Email not confirmed")) {
+          setError("Email não confirmado. Entre em contato com o suporte.")
+        } else {
+          setError(signInError.message)
+        }
         setLoading(false)
         return
       }

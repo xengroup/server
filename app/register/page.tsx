@@ -53,7 +53,11 @@ export default function RegisterPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || "Erro ao registrar usuário")
+        if (data.code === "email_exists") {
+          setError(data.error || "Este email já está cadastrado")
+        } else {
+          setError(data.error || "Erro ao registrar usuário")
+        }
         setLoading(false)
         return
       }

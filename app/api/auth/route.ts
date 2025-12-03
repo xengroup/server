@@ -18,6 +18,19 @@ export async function POST(request: Request) {
 
     // Ação de registro
     if (action === "register") {
+      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
+      const userExists = existingUsers?.users.some((user) => user.email === email)
+
+      if (userExists) {
+        return NextResponse.json(
+          {
+            error: "Este email já está cadastrado. Por favor, faça login ou use outro email.",
+            code: "email_exists",
+          },
+          { status: 409 },
+        )
+      }
+
       // Criar usuário com confirmação automática
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email,
@@ -30,16 +43,18 @@ export async function POST(request: Request) {
       })
 
       if (error) {
-        // Se o erro for de usuário já existente, considerar como sucesso
-        if (error.message.includes("already exists")) {
-          return NextResponse.json({
-            success: true,
-            message: "Usuário já existe",
-            action: "existing_user",
-          })
+        console.error("Erro ao criar usuário:", error)
+
+        if (error.message.includes("already") || error.message.includes("exists")) {
+          return NextResponse.json(
+            {
+              error: "Este email já está cadastrado. Por favor, faça login ou use outro email.",
+              code: "email_exists",
+            },
+            { status: 409 },
+          )
         }
 
-        console.error("Erro ao criar usuário:", error)
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
 

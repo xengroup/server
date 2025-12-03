@@ -58,13 +58,18 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  console.log("[v0] Dashboard - Estado atual:", { year, month, capital, tradeDaysCount: tradeDays.length })
+
   // Carregar configurações do usuário
   useEffect(() => {
     if (!user) return
 
+    console.log("[v0] Carregando configurações do usuário:", user.id)
+
     const loadUserSettings = async () => {
       const settings = await getUserSettings(user.id)
       if (settings) {
+        console.log("[v0] Configurações carregadas:", settings)
         setCapital(settings.capital)
         setEntry(settings.entry)
         setTarget(settings.target)
@@ -78,16 +83,21 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) return
 
+    console.log("[v0] Carregando dias de trade para:", { userId: user.id, month, year })
+
     const loadTradeDays = async () => {
       setLoading(true)
 
       // Buscar dias de trade do Supabase
       const dbTradeDays = await getTradeDays(user.id, month, year)
+      console.log("[v0] Dias de trade do banco:", dbTradeDays.length)
 
       // Se não houver dias de trade para este mês, inicializar com valores padrão
       if (dbTradeDays.length === 0) {
-        initializeTradeDays(year, month)
+        console.log("[v0] Nenhum dia encontrado, inicializando mês")
+        initializeTradeDays(year, month, capital)
       } else {
+        console.log("[v0] Carregando dias existentes do banco")
         // Converter os dias de trade do banco para o formato da UI
         const uiTradeDays: TradeDay[] = dbTradeDays.map((day) => ({
           id: day.day,
@@ -108,9 +118,10 @@ export default function Dashboard() {
     }
 
     loadTradeDays()
-  }, [user, year, month])
+  }, [user, year, month, capital])
 
-  const initializeTradeDays = (year: number, month: number) => {
+  const initializeTradeDays = (year: number, month: number, currentCapital: number) => {
+    console.log("[v0] Inicializando dias do mês com capital:", currentCapital)
     const daysInMonth = new Date(year, month, 0).getDate()
     const initialDays: TradeDay[] = []
 
@@ -122,7 +133,7 @@ export default function Dashboard() {
         id: i,
         day: i,
         date: `${day}/${monthStr}/${year}`,
-        capital: capital,
+        capital: currentCapital,
         initial: "",
         final: "",
         profitPercent: 0,
@@ -137,6 +148,8 @@ export default function Dashboard() {
 
   const updateTradeDay = async (id: number, field: string, value: string) => {
     if (!user) return
+
+    console.log("[v0] Atualizando dia:", { id, field, value })
 
     setTradeDays((prevDays) => {
       const newDays = [...prevDays]
@@ -155,6 +168,14 @@ export default function Dashboard() {
 
             day.profitAmount = finalValue - initialValue
             day.profitPercent = initialValue !== 0 ? (day.profitAmount / initialValue) * 100 : 0
+
+            console.log("[v0] Lucro calculado:", {
+              day: day.day,
+              initial: initialValue,
+              final: finalValue,
+              profit: day.profitAmount,
+              percent: day.profitPercent,
+            })
           }
         }
 
@@ -176,6 +197,7 @@ export default function Dashboard() {
     if (!user) return
 
     setSaving(true)
+    console.log("[v0] Salvando dia no banco:", day)
 
     try {
       // Converter para o formato do banco
@@ -192,9 +214,10 @@ export default function Dashboard() {
         profit_percent: day.profitPercent,
       }
 
-      await createOrUpdateTradeDay(dbTradeDay)
+      const result = await createOrUpdateTradeDay(dbTradeDay)
+      console.log("[v0] Dia salvo com sucesso:", result)
     } catch (error) {
-      console.error("Erro ao salvar dia de trade:", error)
+      console.error("[v0] Erro ao salvar dia de trade:", error)
     } finally {
       setSaving(false)
     }
@@ -207,6 +230,12 @@ export default function Dashboard() {
       totalProfitValue += day.profitAmount
     })
 
+    console.log("[v0] Totais calculados:", {
+      totalProfit: totalProfitValue,
+      capital,
+      profitPercent: capital !== 0 ? (totalProfitValue / capital) * 100 : 0,
+    })
+
     setTotalProfit(totalProfitValue)
     setProfitPercent(capital !== 0 ? (totalProfitValue / capital) * 100 : 0)
     setAccumulatedCapital(capital + totalProfitValue)
@@ -217,6 +246,8 @@ export default function Dashboard() {
 
     // Filtrar apenas dias com operações (que têm valores inicial e final)
     const operatedDays = days.filter((day) => day.initial && day.final)
+
+    console.log("[v0] Calculando resumo mensal:", { totalDays: days.length, operatedDays: operatedDays.length })
 
     if (operatedDays.length === 0) {
       setMonthlySummary({
@@ -270,6 +301,7 @@ export default function Dashboard() {
       worstDay,
     }
 
+    console.log("[v0] Resumo mensal calculado:", summary)
     setMonthlySummary(summary)
 
     // Salvar resumo mensal no Supabase
@@ -291,23 +323,27 @@ export default function Dashboard() {
       }
 
       await createOrUpdateMonthlySummary(dbSummary)
+      console.log("[v0] Resumo mensal salvo com sucesso")
     } catch (error) {
-      console.error("Erro ao salvar resumo mensal:", error)
+      console.error("[v0] Erro ao salvar resumo mensal:", error)
     }
   }
 
   const handleMonthChange = (newYear: number, newMonth: number) => {
+    console.log("[v0] Mudando de mês:", { from: { year, month }, to: { year: newYear, month: newMonth } })
     setYear(newYear)
     setMonth(newMonth)
   }
 
   const handleReset = () => {
-    initializeTradeDays(year, month)
+    console.log("[v0] Resetando mês:", { year, month })
+    initializeTradeDays(year, month, capital)
   }
 
   const updateCapital = async (newCapital: number) => {
     if (!user) return
 
+    console.log("[v0] Atualizando capital:", { from: capital, to: newCapital })
     setCapital(newCapital)
 
     // Atualizar configurações do usuário
@@ -319,10 +355,11 @@ export default function Dashboard() {
         target,
       })
 
+      console.log("[v0] Configurações atualizadas, reinicializando dias")
       // Reinicializar dias de trade com o novo capital
-      initializeTradeDays(year, month)
+      initializeTradeDays(year, month, newCapital)
     } catch (error) {
-      console.error("Erro ao atualizar capital:", error)
+      console.error("[v0] Erro ao atualizar capital:", error)
     }
   }
 
@@ -360,7 +397,7 @@ export default function Dashboard() {
         <div className="container mx-auto p-4">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold">Resumo Financeiro</h2>
-            <Button variant="outline" size="sm" className="gap-1" onClick={handleReset}>
+            <Button variant="outline" size="sm" className="gap-1 bg-transparent" onClick={handleReset}>
               <RefreshCw className="h-4 w-4" />
               Redefinir
             </Button>
